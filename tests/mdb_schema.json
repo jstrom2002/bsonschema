@@ -1,0 +1,284 @@
+{
+  "properties": {
+    "currentCommitTag": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "octImages": {
+      "items": {
+        "properties": {
+          "FOVZ": {
+            "type": "double"
+          },
+          "Lx": {
+            "type": "double"
+          },
+          "Ly": {
+            "type": "double"
+          },
+          "actualTime": {
+            "type": "double"
+          },
+          "ascanAve": {
+            "type": "double"
+          },
+          "captureID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "depth": {
+            "type": "double"
+          },
+          "estimatedTime": {
+            "type": "double"
+          },
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "focusZ": {
+            "type": "double"
+          },
+          "nBscans": {
+            "type": "double"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "scanMethod": {
+            "type": "double"
+          },
+          "scanStartDelay": {
+            "type": "double"
+          },
+          "systemLogID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "systemLogID",
+          "captureID",
+          "eye",
+          "path",
+          "estimatedTime",
+          "actualTime",
+          "scanStartDelay",
+          "ascanAve",
+          "nBscans",
+          "scanMethod",
+          "Lx",
+          "Ly",
+          "depth",
+          "FOVZ",
+          "focusZ"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "octProcImages": {
+      "items": {
+        "properties": {
+          "captureID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "systemLogID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          }
+        },
+        "required": ["timestamp", "systemLogID", "captureID", "eye", "path"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "octReference": {
+      "items": {
+        "properties": {
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          }
+        },
+        "required": ["timestamp", "eye", "path"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "patientID": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "patientSeverity": {
+      "items": {
+        "properties": {
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          }
+        },
+        "required": ["timestamp", "eye", "path"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "sloImages": {
+      "items": {
+        "properties": {
+          "captureID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "systemLogID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          }
+        },
+        "required": ["timestamp", "systemLogID", "captureID", "eye", "path"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "startTime": {
+      "minLength": 1,
+      "type": "datetime"
+    },
+    "svoProperties": {
+      "items": {
+        "properties": {
+          "captureID": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          },
+          "userSvoQualificationOpacity": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "userSvoQualificationShape": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "userSvoQualificationSize": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "userSvoQualificationVelocity": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "captureID",
+          "userSvoQualificationSize",
+          "userSvoQualificationVelocity",
+          "userSvoQualificationOpacity",
+          "userSvoQualificationShape"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "systemLogID": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "trackingFiles": {
+      "items": {
+        "properties": {
+          "eye": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "timestamp": {
+            "minLength": 1,
+            "type": "datetime"
+          }
+        },
+        "required": ["timestamp", "eye", "path"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "username": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "startTime",
+    "currentCommitTag",
+    "username",
+    "patientID",
+    "systemLogID"
+  ],
+  "type": "object"
+}
