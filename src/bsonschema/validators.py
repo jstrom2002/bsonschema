@@ -7,7 +7,6 @@ from collections import deque
 from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from operator import methodcaller
-from typing import TYPE_CHECKING
 from urllib.parse import unquote, urldefrag, urljoin, urlsplit
 from urllib.request import urlopen
 from warnings import warn
@@ -25,17 +24,12 @@ import bsonschema._format
 import bsonschema._keywords
 import bsonschema._legacy_keywords
 import bsonschema._types
-import bsonschema._typing
 import bsonschema._utils
 import bsonschema.exceptions
 
-
-if TYPE_CHECKING:
-    from bsonschema.protocols import Validator
-
 _UNSET = bsonschema._utils.Unset()
 
-_VALIDATORS: dict[str, Validator] = {}
+_VALIDATORS: dict[str, any] = {}
 _META_SCHEMAS = bsonschema._utils.URIDict()
 
 SPECIFICATIONS: referencing.jsonschema.Registry[referencing.jsonschema.Specification[referencing.jsonschema.Schema]] = referencing.jsonschema.Registry(
@@ -264,15 +258,14 @@ _REMOTE_WARNING_REGISTRY = SPECIFICATIONS
 
 
 def create(
-    meta_schema: referencing.jsonschema.ObjectSchema,
     validators: (
-        Mapping[str, bsonschema._typing.SchemaKeywordValidator]
-        | Iterable[tuple[str, bsonschema._typing.SchemaKeywordValidator]]
+        Mapping[str, any]
+        | Iterable[tuple[str, any]]
     ) = (),
     type_checker: bsonschema._types.TypeChecker = bsonschema._types.draft3_type_checker,
     format_checker: bsonschema._format.FormatChecker = bsonschema._format.draft3_format_checker,
-    id_of: bsonschema._typing.id_of = referencing.jsonschema.DRAFT3.id_of,
-    applicable_validators: bsonschema._typing.ApplicableValidators = methodcaller(
+    id_of = referencing.jsonschema.DRAFT3.id_of,
+    applicable_validators = methodcaller(
         "items",
     ),
 ):
@@ -295,7 +288,6 @@ def create(
         schema: referencing.jsonschema.Schema = field(repr=reprlib.repr)
         _ref_resolver = field(default=None, repr=False, alias="resolver")
         format_checker: bsonschema._format.FormatChecker | None = field(default=None)
-        # TODO: include new meta-schemas added at runtime
         _registry: referencing.jsonschema.SchemaRegistry = field(
             default=_REMOTE_WARNING_REGISTRY,
             kw_only=True,
@@ -326,7 +318,7 @@ def create(
             def evolve(self, **changes):
                 cls = self.__class__
                 schema = changes.setdefault("schema", self.schema)
-                NewValidator = validator_for(schema, default=cls)
+                NewValidator = validator_for()
 
                 for field in fields(cls):  # noqa: F402
                     if not field.init:
@@ -355,7 +347,7 @@ def create(
 
         @classmethod
         def check_schema(cls, schema, format_checker=_UNSET):
-            Validator = validator_for(referencing.jsonschema.DRAFT3, default=cls)
+            Validator = validator_for()
             if format_checker is _UNSET:
                 format_checker = Validator.FORMAT_CHECKER
             validator = Validator(
@@ -388,7 +380,7 @@ def create(
 
         def evolve(self, **changes):
             schema = changes.setdefault("schema", self.schema)
-            NewValidator = validator_for(schema, default=self.__class__)
+            NewValidator = validator_for()
 
             for (attr_name, init_name) in evolve_fields:
                 if init_name not in changes:
@@ -563,61 +555,6 @@ def extend(
     type_checker=None,
     format_checker=None,
 ):
-    """
-    Create a new validator class by extending an existing one.
-
-    Arguments:
-
-        validator (jsonschema.protocols.Validator):
-
-            an existing validator class
-
-        validators (collections.abc.Mapping):
-
-            a mapping of new validator callables to extend with, whose
-            structure is as in `create`.
-
-            .. note::
-
-                Any validator callables with the same name as an
-                existing one will (silently) replace the old validator
-                callable entirely, effectively overriding any validation
-                done in the "parent" validator class.
-
-                If you wish to instead extend the behavior of a parent's
-                validator callable, delegate and call it directly in
-                the new validator function by retrieving it using
-                ``OldValidator.VALIDATORS["validation_keyword_name"]``.
-
-        type_checker (jsonschema.TypeChecker):
-
-            a type checker, used when applying the :kw:`type` keyword.
-
-            If unprovided, the type checker of the extended
-            `jsonschema.protocols.Validator` will be carried along.
-
-        format_checker (jsonschema.FormatChecker):
-
-            a format checker, used when applying the :kw:`format` keyword.
-
-            If unprovided, the format checker of the extended
-            `jsonschema.protocols.Validator` will be carried along.
-
-    Returns:
-
-        a new `jsonschema.protocols.Validator` class extending the one
-        provided
-
-    .. note:: Meta Schemas
-
-        The new validator class will have its parent's meta schema.
-
-        If you wish to change or extend the meta schema in the new
-        validator class, modify ``META_SCHEMA`` directly on the returned
-        class. Note that no implicit copying is done, so a copy should
-        likely be made before modifying it, in order to not affect the
-        old validator.
-    """
     all_validators = dict(validator.VALIDATORS)
     all_validators.update(validators)
 
@@ -626,7 +563,6 @@ def extend(
     if format_checker is None:
         format_checker = validator.FORMAT_CHECKER
     return create(
-        meta_schema=referencing.jsonschema.DRAFT3,
         validators=all_validators,
         type_checker=type_checker,
         format_checker=format_checker,
@@ -636,7 +572,6 @@ def extend(
 
 
 Validator_ = create(
-    meta_schema=draft3string,
     validators={
         "$ref": bsonschema._keywords.ref,
         "additionalItems": bsonschema._legacy_keywords.additionalItems,
@@ -1072,6 +1007,6 @@ def validate(instance, schema, cls=None, *args, **kwargs):  # noqa: D417
         raise error
 
 
-def validator_for(schema, default=_UNSET):
+def validator_for():
     return Validator_
 

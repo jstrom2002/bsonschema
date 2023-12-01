@@ -38,12 +38,14 @@ if __name__ == "__main__":
         validator.validate(bson_will_pass)
         print('Valid BSON file passed validation.')        
     except Exception as e:
+        print("Valid BSON failed validation.")
         print(str(e))
+        exit(-1)
 
     # Test that an invalid BSON will throw an exception.
     try:
         bson_will_fail = read_bson_from_disk("./tests/test_bson_will_fail_validation.bson")
-        validator.validate(bson_will_fail)  
+        validator.validate(bson_will_fail)
         print("ERROR! Invalid BSON did not throw an exception during validation.")
         exit(-1) 
     except Exception as e:

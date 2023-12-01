@@ -1,6 +1,6 @@
 # bsonschema
 
-Simple bson validator written similarly to (jsonschema)[https://github.com/python-jsonschema/jsonschema] but for BSON types.
+Simple bson validator written similarly to [jsonschema](https://github.com/python-jsonschema/jsonschema) but for BSON types.
 
 ### Example of Use
 
