@@ -14,7 +14,7 @@ import warnings
 from attrs import define
 from referencing.exceptions import Unresolvable as _Unresolvable
 
-from bsonschema import _utils
+import bsonschema._utils
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, MutableMapping
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 WEAK_MATCHES: frozenset[str] = frozenset(["anyOf", "oneOf"])
 STRONG_MATCHES: frozenset[str] = frozenset()
 
-_unset = _utils.Unset()
+_unset = bsonschema._utils.Unset()
 
 
 def __getattr__(name):
@@ -92,11 +92,11 @@ class _Error(Exception):
         if any(m is _unset for m in essential_for_verbose):
             return self.message
 
-        schema_path = _utils.format_as_index(
+        schema_path = bsonschema._utils.format_as_index(
             container=self._word_for_schema_in_error_message,
             indices=list(self.relative_schema_path)[:-1],
         )
-        instance_path = _utils.format_as_index(
+        instance_path = bsonschema._utils.format_as_index(
             container=self._word_for_instance_in_error_message,
             indices=self.relative_path,
         )

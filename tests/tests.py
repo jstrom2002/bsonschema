@@ -1,6 +1,6 @@
-import bsonschema
 import bson 
 import json
+import bsonschema
 
 # Parse BSON file to dict.
 # returns: a decoded 'dict' parsed from the file.
@@ -26,10 +26,25 @@ def read_bson_from_disk(filepath: str) -> dict:
         bson.CodecOptions(unicode_decode_error_handler="ignore"),
     )
 
+
+
 if __name__ == "__main__":
+
+    validator = bsonschema.Validator(json.load(open("./tests/mdb_schema.json", "r")))        
+
+    # Test that a valid BSON will pass.
     try:
-        validator = bsonschema.Draft3Validator(json.load(open("./mdb_schema.json", "r")))
-        inst = read_bson_from_disk("./test_bson_for_validation.bson")
-        validator.validate(inst)
+        bson_will_pass = read_bson_from_disk("./tests/test_bson_will_pass_validation.bson")
+        validator.validate(bson_will_pass)
+        print('Valid BSON file passed validation.')        
     except Exception as e:
         print(str(e))
+
+    # Test that an invalid BSON will throw an exception.
+    try:
+        bson_will_fail = read_bson_from_disk("./tests/test_bson_will_fail_validation.bson")
+        validator.validate(bson_will_fail)  
+        print("ERROR! Invalid BSON did not throw an exception during validation.")
+        exit(-1) 
+    except Exception as e:
+        print('Invalid BSON successfully failed validation.')    

@@ -1,6 +1,6 @@
 [project]
 name = "bsonschema"
-version = "0.0.16"
+version = "1.0.3"
 authors = [
   { name="Jeff Strom", email="jhstrom1@gmail.com" },
 ]

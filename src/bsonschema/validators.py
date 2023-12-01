@@ -17,28 +17,211 @@ import reprlib
 import warnings
 
 from attrs import define, field, fields
-from jsonschema_specifications import REGISTRY as SPECIFICATIONS
 from rpds import HashTrieMap
 import referencing.exceptions
 import referencing.jsonschema
 
-from bsonschema import (
-    _format,
-    _keywords,
-    _legacy_keywords,
-    _types,
-    _typing,
-    _utils,
-    exceptions,
-)
+import bsonschema._format
+import bsonschema._keywords
+import bsonschema._legacy_keywords
+import bsonschema._types
+import bsonschema._typing
+import bsonschema._utils
+import bsonschema.exceptions
+
 
 if TYPE_CHECKING:
     from bsonschema.protocols import Validator
 
-_UNSET = _utils.Unset()
+_UNSET = bsonschema._utils.Unset()
 
 _VALIDATORS: dict[str, Validator] = {}
-_META_SCHEMAS = _utils.URIDict()
+_META_SCHEMAS = bsonschema._utils.URIDict()
+
+SPECIFICATIONS: referencing.jsonschema.Registry[referencing.jsonschema.Specification[referencing.jsonschema.Schema]] = referencing.jsonschema.Registry(
+    {  # type: ignore[reportGeneralTypeIssues]  # :/ internal vs external types
+        dialect_id: referencing.jsonschema.Resource.opaque(specification)
+        for dialect_id, specification in [
+            ("http://json-schema.org/draft-03/schema", referencing.jsonschema.DRAFT3),
+        ]
+    },
+)
+
+draft3string = """
+{
+	"$schema" : "http://json-schema.org/draft-03/schema#",
+	"id" : "http://json-schema.org/draft-03/schema#",
+	"type" : "object",
+	
+	"properties" : {
+		"type" : {
+			"type" : ["string", "array"],
+			"items" : {
+				"type" : ["string", {"$ref" : "#"}]
+			},
+			"uniqueItems" : true,
+			"default" : "any"
+		},
+		
+		"properties" : {
+			"type" : "object",
+			"additionalProperties" : {"$ref" : "#"},
+			"default" : {}
+		},
+		
+		"patternProperties" : {
+			"type" : "object",
+			"additionalProperties" : {"$ref" : "#"},
+			"default" : {}
+		},
+		
+		"additionalProperties" : {
+			"type" : [{"$ref" : "#"}, "boolean"],
+			"default" : {}
+		},
+		
+		"items" : {
+			"type" : [{"$ref" : "#"}, "array"],
+			"items" : {"$ref" : "#"},
+			"default" : {}
+		},
+		
+		"additionalItems" : {
+			"type" : [{"$ref" : "#"}, "boolean"],
+			"default" : {}
+		},
+		
+		"required" : {
+			"type" : "boolean",
+			"default" : false
+		},
+		
+		"dependencies" : {
+			"type" : "object",
+			"additionalProperties" : {
+				"type" : ["string", "array", {"$ref" : "#"}],
+				"items" : {
+					"type" : "string"
+				}
+			},
+			"default" : {}
+		},
+		
+		"minimum" : {
+			"type" : "number"
+		},
+		
+		"maximum" : {
+			"type" : "number"
+		},
+		
+		"exclusiveMinimum" : {
+			"type" : "boolean",
+			"default" : false
+		},
+		
+		"exclusiveMaximum" : {
+			"type" : "boolean",
+			"default" : false
+		},
+		
+		"minItems" : {
+			"type" : "integer",
+			"minimum" : 0,
+			"default" : 0
+		},
+		
+		"maxItems" : {
+			"type" : "integer",
+			"minimum" : 0
+		},
+		
+		"uniqueItems" : {
+			"type" : "boolean",
+			"default" : false
+		},
+		
+		"pattern" : {
+			"type" : "string",
+			"format" : "regex"
+		},
+		
+		"minLength" : {
+			"type" : "integer",
+			"minimum" : 0,
+			"default" : 0
+		},
+		
+		"maxLength" : {
+			"type" : "integer"
+		},
+		
+		"enum" : {
+			"type" : "array",
+			"minItems" : 1,
+			"uniqueItems" : true
+		},
+		
+		"default" : {
+			"type" : "any"
+		},
+		
+		"title" : {
+			"type" : "string"
+		},
+		
+		"description" : {
+			"type" : "string"
+		},
+		
+		"format" : {
+			"type" : "string"
+		},
+		
+		"divisibleBy" : {
+			"type" : "number",
+			"minimum" : 0,
+			"exclusiveMinimum" : true,
+			"default" : 1
+		},
+		
+		"disallow" : {
+			"type" : ["string", "array"],
+			"items" : {
+				"type" : ["string", {"$ref" : "#"}]
+			},
+			"uniqueItems" : true
+		},
+		
+		"extends" : {
+			"type" : [{"$ref" : "#"}, "array"],
+			"items" : {"$ref" : "#"},
+			"default" : {}
+		},
+		
+		"id" : {
+			"type" : "string",
+			"format" : "uri"
+		},
+		
+		"$ref" : {
+			"type" : "string",
+			"format" : "uri"
+		},
+		
+		"$schema" : {
+			"type" : "string",
+			"format" : "uri"
+		}
+	},
+	
+	"dependencies" : {
+		"exclusiveMinimum" : "minimum",
+		"exclusiveMaximum" : "maximum"
+	},
+	
+	"default" : {}
+}"""
 
 
 def __getattr__(name):
@@ -77,152 +260,32 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
-def validates(version):
-    """
-    Register the decorated validator for a ``version`` of the specification.
-
-    Registered validators and their meta schemas will be considered when
-    parsing :kw:`$schema` keywords' URIs.
-
-    Arguments:
-
-        version (str):
-
-            An identifier to use as the version's name
-
-    Returns:
-
-        collections.abc.Callable:
-
-            a class decorator to decorate the validator with the version
-    """
-
-    def _validates(cls):
-        _VALIDATORS[version] = cls
-        meta_schema_id = cls.ID_OF(cls.META_SCHEMA)
-        _META_SCHEMAS[meta_schema_id] = cls
-        return cls
-    return _validates
-
-
-def _warn_for_remote_retrieve(uri: str):
-    from urllib.request import Request, urlopen
-    headers = {"User-Agent": "python-jsonschema (deprecated $ref resolution)"}
-    request = Request(uri, headers=headers)
-    with urlopen(request) as response:
-        warnings.warn(
-            "Automatically retrieving remote references can be a security "
-            "vulnerability and is discouraged by the JSON Schema "
-            "specifications. Relying on this behavior is deprecated "
-            "and will shortly become an error. If you are sure you want to "
-            "remotely retrieve your reference and that it is safe to do so, "
-            "you can find instructions for doing so via referencing.Registry "
-            "in the referencing documentation "
-            "(https://referencing.readthedocs.org).",
-            DeprecationWarning,
-            stacklevel=9,  # Ha ha ha ha magic numbers :/
-        )
-        return referencing.Resource.from_contents(
-            json.load(response),
-            default_specification=referencing.jsonschema.DRAFT202012,
-        )
-
-
-_REMOTE_WARNING_REGISTRY = SPECIFICATIONS.combine(
-    referencing.Registry(retrieve=_warn_for_remote_retrieve),  # type: ignore[call-arg]
-)
+_REMOTE_WARNING_REGISTRY = SPECIFICATIONS
 
 
 def create(
     meta_schema: referencing.jsonschema.ObjectSchema,
     validators: (
-        Mapping[str, _typing.SchemaKeywordValidator]
-        | Iterable[tuple[str, _typing.SchemaKeywordValidator]]
+        Mapping[str, bsonschema._typing.SchemaKeywordValidator]
+        | Iterable[tuple[str, bsonschema._typing.SchemaKeywordValidator]]
     ) = (),
-    version: str | None = None,
-    type_checker: _types.TypeChecker = _types.draft202012_type_checker,
-    format_checker: _format.FormatChecker = _format.draft202012_format_checker,
-    id_of: _typing.id_of = referencing.jsonschema.DRAFT202012.id_of,
-    applicable_validators: _typing.ApplicableValidators = methodcaller(
+    type_checker: bsonschema._types.TypeChecker = bsonschema._types.draft3_type_checker,
+    format_checker: bsonschema._format.FormatChecker = bsonschema._format.draft3_format_checker,
+    id_of: bsonschema._typing.id_of = referencing.jsonschema.DRAFT3.id_of,
+    applicable_validators: bsonschema._typing.ApplicableValidators = methodcaller(
         "items",
     ),
 ):
-    """
-    Create a new validator class.
-
-    Arguments:
-
-        meta_schema:
-
-            the meta schema for the new validator class
-
-        validators:
-
-            a mapping from names to callables, where each callable will
-            validate the schema property with the given name.
-
-            Each callable should take 4 arguments:
-
-                1. a validator instance,
-                2. the value of the property being validated within the
-                   instance
-                3. the instance
-                4. the schema
-
-        version:
-
-            an identifier for the version that this validator class will
-            validate. If provided, the returned validator class will
-            have its ``__name__`` set to include the version, and also
-            will have `jsonschema.validators.validates` automatically
-            called for the given version.
-
-        type_checker:
-
-            a type checker, used when applying the :kw:`type` keyword.
-
-            If unprovided, a `jsonschema.TypeChecker` will be created
-            with a set of default types typical of JSON Schema drafts.
-
-        format_checker:
-
-            a format checker, used when applying the :kw:`format` keyword.
-
-            If unprovided, a `jsonschema.FormatChecker` will be created
-            with a set of default formats typical of JSON Schema drafts.
-
-        id_of:
-
-            A function that given a schema, returns its ID.
-
-        applicable_validators:
-
-            A function that, given a schema, returns the list of
-            applicable schema keywords and associated values
-            which will be used to validate the instance.
-            This is mostly used to support pre-draft 7 versions of JSON Schema
-            which specified behavior around ignoring keywords if they were
-            siblings of a ``$ref`` keyword. If you're not attempting to
-            implement similar behavior, you can typically ignore this argument
-            and leave it at its default.
-
-    Returns:
-
-        a new `jsonschema.protocols.Validator` class
-    """
     # preemptively don't shadow the `Validator.format_checker` local
     format_checker_arg = format_checker
 
-    specification = referencing.jsonschema.specification_with(
-        dialect_id=id_of(meta_schema) or "urn:unknown-dialect",
-        default=referencing.Specification.OPAQUE,
-    )
+    specification = (referencing.jsonschema.DRAFT3)
 
     @define
     class Validator:
 
         VALIDATORS = dict(validators)  # noqa: RUF012
-        META_SCHEMA = dict(meta_schema)  # noqa: RUF012
+        META_SCHEMA = referencing.jsonschema.DRAFT3  # noqa: RUF012
         TYPE_CHECKER = type_checker
         FORMAT_CHECKER = format_checker_arg
         ID_OF = staticmethod(id_of)
@@ -231,7 +294,7 @@ def create(
 
         schema: referencing.jsonschema.Schema = field(repr=reprlib.repr)
         _ref_resolver = field(default=None, repr=False, alias="resolver")
-        format_checker: _format.FormatChecker | None = field(default=None)
+        format_checker: bsonschema._format.FormatChecker | None = field(default=None)
         # TODO: include new meta-schemas added at runtime
         _registry: referencing.jsonschema.SchemaRegistry = field(
             default=_REMOTE_WARNING_REGISTRY,
@@ -280,8 +343,6 @@ def create(
         def __attrs_post_init__(self):
             if self._resolver is None:
                 registry = self._registry
-                if registry is not _REMOTE_WARNING_REGISTRY:
-                    registry = SPECIFICATIONS.combine(registry)
                 resource = specification.create_resource(self.schema)
                 self._resolver = registry.resolver_with_root(resource)
 
@@ -294,15 +355,15 @@ def create(
 
         @classmethod
         def check_schema(cls, schema, format_checker=_UNSET):
-            Validator = validator_for(cls.META_SCHEMA, default=cls)
+            Validator = validator_for(referencing.jsonschema.DRAFT3, default=cls)
             if format_checker is _UNSET:
                 format_checker = Validator.FORMAT_CHECKER
             validator = Validator(
-                schema=cls.META_SCHEMA,
+                schema=referencing.jsonschema.DRAFT3,
                 format_checker=format_checker,
             )
             for error in validator.iter_errors(schema):
-                raise exceptions.SchemaError.create_from(error)
+                raise bsonschema.exceptions.SchemaError.create_from(error)
 
         @property
         def resolver(self):
@@ -353,7 +414,7 @@ def create(
             if _schema is True:
                 return
             elif _schema is False:
-                yield exceptions.ValidationError(
+                yield bsonschema.exceptions.ValidationError(
                     f"False schema does not allow {instance!r}",
                     validator=None,
                     validator_value=None,
@@ -392,7 +453,7 @@ def create(
             if schema is True:
                 return
             elif schema is False:
-                yield exceptions.ValidationError(
+                yield bsonschema.exceptions.ValidationError(
                     f"False schema does not allow {instance!r}",
                     validator=None,
                     validator_value=None,
@@ -440,15 +501,16 @@ def create(
         def is_type(self, instance, type):
             try:
                 return self.TYPE_CHECKER.is_type(instance, type)
-            except exceptions.UndefinedTypeCheck:
-                raise exceptions.UnknownType(type, instance, self.schema)
+            except bsonschema.exceptions.UndefinedTypeCheck:
+                raise bsonschema.exceptions.UnknownType(type, instance, self.schema)
+
 
         def _validate_reference(self, ref, instance):
             if self._ref_resolver is None:
                 try:
                     resolved = self._resolver.lookup(ref)
                 except referencing.exceptions.Unresolvable as err:
-                    raise exceptions._WrappedReferencingError(err)
+                    raise bsonschema.exceptions._WrappedReferencingError(err)
 
                 return self.descend(
                     instance,
@@ -468,7 +530,7 @@ def create(
                         return list(self.descend(instance, resolved))
                     finally:
                         self._ref_resolver.pop_scope()
-
+        
         def is_valid(self, instance, _schema=None):
             if _schema is not None:
                 warnings.warn(
@@ -492,18 +554,12 @@ def create(
         if field.init
     ]
 
-    if version is not None:
-        safe = version.title().replace(" ", "").replace("-", "")
-        Validator.__name__ = Validator.__qualname__ = f"{safe}Validator"
-        Validator = validates(version)(Validator)  # type: ignore[misc]
-
     return Validator
 
 
 def extend(
     validator,
     validators=(),
-    version=None,
     type_checker=None,
     format_checker=None,
 ):
@@ -532,10 +588,6 @@ def extend(
                 validator callable, delegate and call it directly in
                 the new validator function by retrieving it using
                 ``OldValidator.VALIDATORS["validation_keyword_name"]``.
-
-        version (str):
-
-            a version for the new validator class
 
         type_checker (jsonschema.TypeChecker):
 
@@ -574,9 +626,8 @@ def extend(
     if format_checker is None:
         format_checker = validator.FORMAT_CHECKER
     return create(
-        meta_schema=validator.META_SCHEMA,
+        meta_schema=referencing.jsonschema.DRAFT3,
         validators=all_validators,
-        version=version,
         type_checker=type_checker,
         format_checker=format_checker,
         id_of=validator.ID_OF,
@@ -584,265 +635,36 @@ def extend(
     )
 
 
-Draft3Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "http://json-schema.org/draft-03/schema#",
-    ),
+Validator_ = create(
+    meta_schema=draft3string,
     validators={
-        "$ref": _keywords.ref,
-        "additionalItems": _legacy_keywords.additionalItems,
-        "additionalProperties": _keywords.additionalProperties,
-        "dependencies": _legacy_keywords.dependencies_draft3,
-        "disallow": _legacy_keywords.disallow_draft3,
-        "divisibleBy": _keywords.multipleOf,
-        "enum": _keywords.enum,
-        "extends": _legacy_keywords.extends_draft3,
-        "format": _keywords.format,
-        "items": _legacy_keywords.items_draft3_draft4,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maximum": _legacy_keywords.maximum_draft3_draft4,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minimum": _legacy_keywords.minimum_draft3_draft4,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "properties": _legacy_keywords.properties_draft3,
-        "type": _legacy_keywords.type_draft3,
-        "uniqueItems": _keywords.uniqueItems,
+        "$ref": bsonschema._keywords.ref,
+        "additionalItems": bsonschema._legacy_keywords.additionalItems,
+        "additionalProperties": bsonschema._keywords.additionalProperties,
+        "dependencies": bsonschema._legacy_keywords.dependencies_draft3,
+        "disallow": bsonschema._legacy_keywords.disallow_draft3,
+        "divisibleBy": bsonschema._keywords.multipleOf,
+        "enum": bsonschema._keywords.enum,
+        "extends": bsonschema._legacy_keywords.extends_draft3,
+        "format": bsonschema._keywords.format,
+        "items": bsonschema._legacy_keywords.items_draft3_draft4,
+        "maxItems": bsonschema._keywords.maxItems,
+        "maxLength": bsonschema._keywords.maxLength,
+        "maximum": bsonschema._legacy_keywords.maximum_draft3_draft4,
+        "minItems": bsonschema._keywords.minItems,
+        "minLength": bsonschema._keywords.minLength,
+        "minimum": bsonschema._legacy_keywords.minimum_draft3_draft4,
+        "pattern": bsonschema._keywords.pattern,
+        "patternProperties": bsonschema._keywords.patternProperties,
+        "properties": bsonschema._legacy_keywords.properties_draft3,
+        "type": bsonschema._legacy_keywords.type_draft3,
+        "uniqueItems": bsonschema._keywords.uniqueItems,
     },
-    type_checker=_types.draft3_type_checker,
-    format_checker=_format.draft3_format_checker,
-    version="draft3",
+    type_checker=bsonschema._types.draft3_type_checker,
+    format_checker=bsonschema._format.draft3_format_checker,
     id_of=referencing.jsonschema.DRAFT3.id_of,
-    applicable_validators=_legacy_keywords.ignore_ref_siblings,
+    applicable_validators=bsonschema._legacy_keywords.ignore_ref_siblings,
 )
-
-Draft4Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "http://json-schema.org/draft-04/schema#",
-    ),
-    validators={
-        "$ref": _keywords.ref,
-        "additionalItems": _legacy_keywords.additionalItems,
-        "additionalProperties": _keywords.additionalProperties,
-        "allOf": _keywords.allOf,
-        "anyOf": _keywords.anyOf,
-        "dependencies": _legacy_keywords.dependencies_draft4_draft6_draft7,
-        "enum": _keywords.enum,
-        "format": _keywords.format,
-        "items": _legacy_keywords.items_draft3_draft4,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maxProperties": _keywords.maxProperties,
-        "maximum": _legacy_keywords.maximum_draft3_draft4,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minProperties": _keywords.minProperties,
-        "minimum": _legacy_keywords.minimum_draft3_draft4,
-        "multipleOf": _keywords.multipleOf,
-        "not": _keywords.not_,
-        "oneOf": _keywords.oneOf,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "properties": _keywords.properties,
-        "required": _keywords.required,
-        "type": _keywords.type,
-        "uniqueItems": _keywords.uniqueItems,
-    },
-    type_checker=_types.draft4_type_checker,
-    format_checker=_format.draft4_format_checker,
-    version="draft4",
-    id_of=referencing.jsonschema.DRAFT4.id_of,
-    applicable_validators=_legacy_keywords.ignore_ref_siblings,
-)
-
-Draft6Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "http://json-schema.org/draft-06/schema#",
-    ),
-    validators={
-        "$ref": _keywords.ref,
-        "additionalItems": _legacy_keywords.additionalItems,
-        "additionalProperties": _keywords.additionalProperties,
-        "allOf": _keywords.allOf,
-        "anyOf": _keywords.anyOf,
-        "const": _keywords.const,
-        "contains": _legacy_keywords.contains_draft6_draft7,
-        "dependencies": _legacy_keywords.dependencies_draft4_draft6_draft7,
-        "enum": _keywords.enum,
-        "exclusiveMaximum": _keywords.exclusiveMaximum,
-        "exclusiveMinimum": _keywords.exclusiveMinimum,
-        "format": _keywords.format,
-        "items": _legacy_keywords.items_draft6_draft7_draft201909,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maxProperties": _keywords.maxProperties,
-        "maximum": _keywords.maximum,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minProperties": _keywords.minProperties,
-        "minimum": _keywords.minimum,
-        "multipleOf": _keywords.multipleOf,
-        "not": _keywords.not_,
-        "oneOf": _keywords.oneOf,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "properties": _keywords.properties,
-        "propertyNames": _keywords.propertyNames,
-        "required": _keywords.required,
-        "type": _keywords.type,
-        "uniqueItems": _keywords.uniqueItems,
-    },
-    type_checker=_types.draft6_type_checker,
-    format_checker=_format.draft6_format_checker,
-    version="draft6",
-    id_of=referencing.jsonschema.DRAFT6.id_of,
-    applicable_validators=_legacy_keywords.ignore_ref_siblings,
-)
-
-Draft7Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "http://json-schema.org/draft-07/schema#",
-    ),
-    validators={
-        "$ref": _keywords.ref,
-        "additionalItems": _legacy_keywords.additionalItems,
-        "additionalProperties": _keywords.additionalProperties,
-        "allOf": _keywords.allOf,
-        "anyOf": _keywords.anyOf,
-        "const": _keywords.const,
-        "contains": _legacy_keywords.contains_draft6_draft7,
-        "dependencies": _legacy_keywords.dependencies_draft4_draft6_draft7,
-        "enum": _keywords.enum,
-        "exclusiveMaximum": _keywords.exclusiveMaximum,
-        "exclusiveMinimum": _keywords.exclusiveMinimum,
-        "format": _keywords.format,
-        "if": _keywords.if_,
-        "items": _legacy_keywords.items_draft6_draft7_draft201909,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maxProperties": _keywords.maxProperties,
-        "maximum": _keywords.maximum,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minProperties": _keywords.minProperties,
-        "minimum": _keywords.minimum,
-        "multipleOf": _keywords.multipleOf,
-        "not": _keywords.not_,
-        "oneOf": _keywords.oneOf,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "properties": _keywords.properties,
-        "propertyNames": _keywords.propertyNames,
-        "required": _keywords.required,
-        "type": _keywords.type,
-        "uniqueItems": _keywords.uniqueItems,
-    },
-    type_checker=_types.draft7_type_checker,
-    format_checker=_format.draft7_format_checker,
-    version="draft7",
-    id_of=referencing.jsonschema.DRAFT7.id_of,
-    applicable_validators=_legacy_keywords.ignore_ref_siblings,
-)
-
-Draft201909Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "https://json-schema.org/draft/2019-09/schema",
-    ),
-    validators={
-        "$recursiveRef": _legacy_keywords.recursiveRef,
-        "$ref": _keywords.ref,
-        "additionalItems": _legacy_keywords.additionalItems,
-        "additionalProperties": _keywords.additionalProperties,
-        "allOf": _keywords.allOf,
-        "anyOf": _keywords.anyOf,
-        "const": _keywords.const,
-        "contains": _keywords.contains,
-        "dependentRequired": _keywords.dependentRequired,
-        "dependentSchemas": _keywords.dependentSchemas,
-        "enum": _keywords.enum,
-        "exclusiveMaximum": _keywords.exclusiveMaximum,
-        "exclusiveMinimum": _keywords.exclusiveMinimum,
-        "format": _keywords.format,
-        "if": _keywords.if_,
-        "items": _legacy_keywords.items_draft6_draft7_draft201909,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maxProperties": _keywords.maxProperties,
-        "maximum": _keywords.maximum,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minProperties": _keywords.minProperties,
-        "minimum": _keywords.minimum,
-        "multipleOf": _keywords.multipleOf,
-        "not": _keywords.not_,
-        "oneOf": _keywords.oneOf,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "properties": _keywords.properties,
-        "propertyNames": _keywords.propertyNames,
-        "required": _keywords.required,
-        "type": _keywords.type,
-        "unevaluatedItems": _legacy_keywords.unevaluatedItems_draft2019,
-        "unevaluatedProperties": (
-            _legacy_keywords.unevaluatedProperties_draft2019
-        ),
-        "uniqueItems": _keywords.uniqueItems,
-    },
-    type_checker=_types.draft201909_type_checker,
-    format_checker=_format.draft201909_format_checker,
-    version="draft2019-09",
-)
-
-Draft202012Validator = create(
-    meta_schema=SPECIFICATIONS.contents(
-        "https://json-schema.org/draft/2020-12/schema",
-    ),
-    validators={
-        "$dynamicRef": _keywords.dynamicRef,
-        "$ref": _keywords.ref,
-        "additionalProperties": _keywords.additionalProperties,
-        "allOf": _keywords.allOf,
-        "anyOf": _keywords.anyOf,
-        "const": _keywords.const,
-        "contains": _keywords.contains,
-        "dependentRequired": _keywords.dependentRequired,
-        "dependentSchemas": _keywords.dependentSchemas,
-        "enum": _keywords.enum,
-        "exclusiveMaximum": _keywords.exclusiveMaximum,
-        "exclusiveMinimum": _keywords.exclusiveMinimum,
-        "format": _keywords.format,
-        "if": _keywords.if_,
-        "items": _keywords.items,
-        "maxItems": _keywords.maxItems,
-        "maxLength": _keywords.maxLength,
-        "maxProperties": _keywords.maxProperties,
-        "maximum": _keywords.maximum,
-        "minItems": _keywords.minItems,
-        "minLength": _keywords.minLength,
-        "minProperties": _keywords.minProperties,
-        "minimum": _keywords.minimum,
-        "multipleOf": _keywords.multipleOf,
-        "not": _keywords.not_,
-        "oneOf": _keywords.oneOf,
-        "pattern": _keywords.pattern,
-        "patternProperties": _keywords.patternProperties,
-        "prefixItems": _keywords.prefixItems,
-        "properties": _keywords.properties,
-        "propertyNames": _keywords.propertyNames,
-        "required": _keywords.required,
-        "type": _keywords.type,
-        "unevaluatedItems": _keywords.unevaluatedItems,
-        "unevaluatedProperties": _keywords.unevaluatedProperties,
-        "uniqueItems": _keywords.uniqueItems,
-    },
-    type_checker=_types.draft202012_type_checker,
-    format_checker=_format.draft202012_format_checker,
-    version="draft2020-12",
-)
-
-_LATEST_VERSION = Draft202012Validator
 
 
 class _RefResolver:
@@ -923,7 +745,7 @@ class _RefResolver:
 
         self._scopes_stack = [base_uri]
 
-        self.store = _utils.URIDict(
+        self.store = bsonschema._utils.URIDict(
             (uri, each.contents) for uri, each in SPECIFICATIONS.items()
         )
         self.store.update(
@@ -944,7 +766,7 @@ class _RefResolver:
     def from_schema(  # noqa: D417
         cls,
         schema,
-        id_of=referencing.jsonschema.DRAFT202012.id_of,
+        id_of=referencing.jsonschema.DRAFT3.id_of,
         *args,
         **kwargs,
     ):
@@ -987,7 +809,7 @@ class _RefResolver:
         try:
             self._scopes_stack.pop()
         except IndexError:
-            raise exceptions._RefResolutionError(
+            raise bsonschema.exceptions._RefResolutionError(
                 "Failed to pop the scope from an empty stack. "
                 "`pop_scope()` should only be called once for every "
                 "`push_scope()`",
@@ -1103,7 +925,7 @@ class _RefResolver:
             try:
                 document = self.resolve_remote(url)
             except Exception as exc:
-                raise exceptions._RefResolutionError(exc)
+                raise bsonschema.exceptions._RefResolutionError(exc)
 
         return self.resolve_fragment(document, fragment)
 
@@ -1155,7 +977,7 @@ class _RefResolver:
             try:
                 document = document[part]
             except (TypeError, LookupError):
-                raise exceptions._RefResolutionError(
+                raise bsonschema.exceptions._RefResolutionError(
                     f"Unresolvable JSON pointer: {fragment!r}",
                 )
 
@@ -1243,144 +1065,13 @@ def _search_schema(schema, matcher):
 
 
 def validate(instance, schema, cls=None, *args, **kwargs):  # noqa: D417
-    """
-    Validate an instance under the given schema.
-
-        >>> validate([2, 3, 4], {"maxItems": 2})
-        Traceback (most recent call last):
-            ...
-        ValidationError: [2, 3, 4] is too long
-
-    :func:`~jsonschema.validators.validate` will first verify that the
-    provided schema is itself valid, since not doing so can lead to less
-    obvious error messages and fail in less obvious or consistent ways.
-
-    If you know you have a valid schema already, especially
-    if you intend to validate multiple instances with
-    the same schema, you likely would prefer using the
-    `jsonschema.protocols.Validator.validate` method directly on a
-    specific validator (e.g. ``Draft202012Validator.validate``).
-
-
-    Arguments:
-
-        instance:
-
-            The instance to validate
-
-        schema:
-
-            The schema to validate with
-
-        cls (jsonschema.protocols.Validator):
-
-            The class that will be used to validate the instance.
-
-    If the ``cls`` argument is not provided, two things will happen
-    in accordance with the specification. First, if the schema has a
-    :kw:`$schema` keyword containing a known meta-schema [#]_ then the
-    proper validator will be used. The specification recommends that
-    all schemas contain :kw:`$schema` properties for this reason. If no
-    :kw:`$schema` property is found, the default validator class is the
-    latest released draft.
-
-    Any other provided positional and keyword arguments will be passed
-    on when instantiating the ``cls``.
-
-    Raises:
-
-        `jsonschema.exceptions.ValidationError`:
-
-            if the instance is invalid
-
-        `jsonschema.exceptions.SchemaError`:
-
-            if the schema itself is invalid
-
-    .. rubric:: Footnotes
-    .. [#] known by a validator registered with
-        `jsonschema.validators.validates`
-    """
-    if cls is None:
-        cls = validator_for(schema)
-
     cls.check_schema(schema)
     validator = cls(schema, *args, **kwargs)
-    error = exceptions.best_match(validator.iter_errors(instance))
+    error = bsonschema.exceptions.best_match(validator.iter_errors(instance))
     if error is not None:
         raise error
 
 
 def validator_for(schema, default=_UNSET):
-    """
-    Retrieve the validator class appropriate for validating the given schema.
+    return Validator_
 
-    Uses the :kw:`$schema` keyword that should be present in the given
-    schema to look up the appropriate validator class.
-
-    Arguments:
-
-        schema (collections.abc.Mapping or bool):
-
-            the schema to look at
-
-        default:
-
-            the default to return if the appropriate validator class
-            cannot be determined.
-
-            If unprovided, the default is to return the latest supported
-            draft.
-
-    Examples:
-
-        The :kw:`$schema` JSON Schema keyword will control which validator
-        class is returned:
-
-        >>> schema = {
-        ...     "$schema": "https://json-schema.org/draft/2020-12/schema",
-        ...     "type": "integer",
-        ... }
-        >>> jsonschema.validators.validator_for(schema)
-        <class 'jsonschema.validators.Draft202012Validator'>
-
-
-        Here, a draft 7 schema instead will return the draft 7 validator:
-
-        >>> schema = {
-        ...     "$schema": "http://json-schema.org/draft-07/schema#",
-        ...     "type": "integer",
-        ... }
-        >>> jsonschema.validators.validator_for(schema)
-        <class 'jsonschema.validators.Draft7Validator'>
-
-
-        Schemas with no ``$schema`` keyword will fallback to the default
-        argument:
-
-        >>> schema = {"type": "integer"}
-        >>> jsonschema.validators.validator_for(
-        ...     schema, default=Draft7Validator,
-        ... )
-        <class 'jsonschema.validators.Draft7Validator'>
-
-        or if none is provided, to the latest version supported.
-        Always including the keyword when authoring schemas is highly
-        recommended.
-
-    """
-    DefaultValidator = _LATEST_VERSION if default is _UNSET else default
-
-    if schema is True or schema is False or "$schema" not in schema:
-        return DefaultValidator
-    if schema["$schema"] not in _META_SCHEMAS and default is _UNSET:
-        warn(
-            (
-                "The metaschema specified by $schema was not found. "
-                "Using the latest draft to validate, but this will raise "
-                "an error in the future."
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    return _META_SCHEMAS.get(schema["$schema"], DefaultValidator)

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from bsonschema import _typing
     from bsonschema.exceptions import ValidationError
-    import bsonschema
+    import jsonschema
     import bsonschema.validators
 
 # For code authors working on the validator protocol, these are the three
@@ -99,11 +99,11 @@ class Validator(Protocol):
 
     #: A `jsonschema.TypeChecker` that will be used when validating
     #: :kw:`type` keywords in JSON schemas.
-    TYPE_CHECKER: ClassVar[bsonschema.TypeChecker]
+    TYPE_CHECKER: ClassVar[jsonschema.TypeChecker]
 
     #: A `jsonschema.FormatChecker` that will be used when validating
     #: :kw:`format` keywords in JSON schemas.
-    FORMAT_CHECKER: ClassVar[bsonschema.FormatChecker]
+    FORMAT_CHECKER: ClassVar[jsonschema.FormatChecker]
 
     #: A function which given a schema returns its ID.
     ID_OF: _typing.id_of
@@ -115,7 +115,7 @@ class Validator(Protocol):
         self,
         schema: Mapping | bool,
         registry: referencing.jsonschema.SchemaRegistry,
-        format_checker: bsonschema.FormatChecker | None = None,
+        format_checker: jsonschema.FormatChecker | None = None,
     ) -> None:
         ...
 

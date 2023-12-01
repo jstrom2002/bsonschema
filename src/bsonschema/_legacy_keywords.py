@@ -2,7 +2,7 @@ import re
 
 from referencing.jsonschema import lookup_recursive_ref
 
-from bsonschema import _utils
+import bsonschema._utils
 from bsonschema.exceptions import ValidationError
 
 
@@ -44,38 +44,9 @@ def dependencies_draft3(validator, dependencies, instance, schema):
                     yield ValidationError(message)
 
 
-def dependencies_draft4_draft6_draft7(
-    validator,
-    dependencies,
-    instance,
-    schema,
-):
-    """
-    Support for the ``dependencies`` keyword from pre-draft 2019-09.
-
-    In later drafts, the keyword was split into separate
-    ``dependentRequired`` and ``dependentSchemas`` validators.
-    """
-    if not validator.is_type(instance, "object"):
-        return
-
-    for property, dependency in dependencies.items():
-        if property not in instance:
-            continue
-
-        if validator.is_type(dependency, "array"):
-            for each in dependency:
-                if each not in instance:
-                    message = f"{each!r} is a dependency of {property!r}"
-                    yield ValidationError(message)
-        else:
-            yield from validator.descend(
-                instance, dependency, schema_path=property,
-            )
-
 
 def disallow_draft3(validator, disallow, instance, schema):
-    for disallowed in _utils.ensure_list(disallow):
+    for disallowed in bsonschema._utils.ensure_list(disallow):
         if validator.evolve(schema={"type": [disallowed]}).is_valid(instance):
             message = f"{disallowed!r} is disallowed for {instance!r}"
             yield ValidationError(message)
@@ -117,22 +88,8 @@ def additionalItems(validator, aI, instance, schema):
     elif not aI and len(instance) > len(schema.get("items", [])):
         error = "Additional items are not allowed (%s %s unexpected)"
         yield ValidationError(
-            error % _utils.extras_msg(instance[len(schema.get("items", [])):]),
+            error % bsonschema._utils.extras_msg(instance[len(schema.get("items", [])):]),
         )
-
-
-def items_draft6_draft7_draft201909(validator, items, instance, schema):
-    if not validator.is_type(instance, "array"):
-        return
-
-    if validator.is_type(items, "array"):
-        for (index, item), subschema in zip(enumerate(instance), items):
-            yield from validator.descend(
-                item, subschema, path=index, schema_path=index,
-            )
-    else:
-        for index, item in enumerate(instance):
-            yield from validator.descend(item, items, path=index)
 
 
 def minimum_draft3_draft4(validator, minimum, instance, schema):
@@ -193,7 +150,7 @@ def properties_draft3(validator, properties, instance, schema):
 
 
 def type_draft3(validator, types, instance, schema):
-    types = _utils.ensure_list(types)
+    types = bsonschema._utils.ensure_list(types)
 
     all_errors = []
     for index, type in enumerate(types):
@@ -216,20 +173,6 @@ def type_draft3(validator, types, instance, schema):
             f"{instance!r} is not of type {', '.join(reprs)}",
             context=all_errors,
         )
-
-
-def contains_draft6_draft7(validator, contains, instance, schema):
-    if not validator.is_type(instance, "array"):
-        return
-
-    if not any(
-        validator.evolve(schema=contains).is_valid(element)
-        for element in instance
-    ):
-        yield ValidationError(
-            f"None of {instance!r} are valid under the given schema",
-        )
-
 
 def recursiveRef(validator, recursiveRef, instance, schema):
     resolved = lookup_recursive_ref(validator._resolver)
@@ -331,7 +274,7 @@ def unevaluatedItems_draft2019(validator, unevaluatedItems, instance, schema):
     ]
     if unevaluated_items:
         error = "Unevaluated items are not allowed (%s %s unexpected)"
-        yield ValidationError(error % _utils.extras_msg(unevaluated_items))
+        yield ValidationError(error % bsonschema._utils.extras_msg(unevaluated_items))
 
 
 def find_evaluated_property_keys_by_schema(validator, instance, schema):
@@ -418,35 +361,3 @@ def find_evaluated_property_keys_by_schema(validator, instance, schema):
                 )
 
     return evaluated_keys
-
-
-def unevaluatedProperties_draft2019(validator, uP, instance, schema):
-    if not validator.is_type(instance, "object"):
-        return
-    evaluated_keys = find_evaluated_property_keys_by_schema(
-        validator, instance, schema,
-    )
-    unevaluated_keys = []
-    for property in instance:
-        if property not in evaluated_keys:
-            for _ in validator.descend(
-                instance[property],
-                uP,
-                path=property,
-                schema_path=property,
-            ):
-                # FIXME: Include context for each unevaluated property
-                #        indicating why it's invalid under the subschema.
-                unevaluated_keys.append(property)
-
-    if unevaluated_keys:
-        if uP is False:
-            error = "Unevaluated properties are not allowed (%s %s unexpected)"
-            extras = sorted(unevaluated_keys, key=str)
-            yield ValidationError(error % _utils.extras_msg(extras))
-        else:
-            error = (
-                "Unevaluated properties are not valid under "
-                "the given schema (%s %s unevaluated and invalid)"
-            )
-            yield ValidationError(error % _utils.extras_msg(unevaluated_keys))
