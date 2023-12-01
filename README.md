@@ -1,5 +1,3 @@
-# Example Package
+# bsonschema
 
-This is a simple example package. You can use
-[GitHub-flavored Markdown](https://guides.github.com/features/mastering-markdown/)
-to write your content.
+Simple bson validator written similarly to (jsonschema)[https://github.com/python-jsonschema/jsonschema] but for BSON types.
